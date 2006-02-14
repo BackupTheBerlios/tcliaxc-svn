@@ -1,0 +1,4 @@
+iaxclient
+	- iaxclient segfault on call-hangup fast sequence
+	  (not our fault); to avoid this we introduced a
+	  sleep time into iaxc call and hangup commands.

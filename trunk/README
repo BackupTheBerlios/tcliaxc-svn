@@ -1,0 +1,80 @@
+tcliaxc README
+
+* Table of contents
+|
+|_Introduction
+|
+|_Developers
+|
+|_Installation
+
+
+* Introduction
+
+tcliaxc is a Tcl extension which provides you access to iax voip protocol
+via iaxclient library. tcliaxc lets you use a Tcl package to do basic iax
+operations such as registering to a server, make a call, handle iax event
+and so on.
+
+tcliaxc ia a free software licensed under the BSD license terms.
+
+* Developers
+
+tcliaxc developers are:
+
+bugant  - bugant@users.berlios.de
+sickpig - sickpig@users.berlios.de
+
+for any additional info feel free to contact them.
+
+* Requirements
+
+tcliaxc needs iaxclient library (http://iaxclient.sf.net) to get it just
+checkout it from its cvs:
+
+cvs -d:pserver:anonymous@cvs.sourceforge.net:/cvsroot/iaxclient login
+cvs -z3 -d:pserver:anonymous@cvs.sourceforge.net:/cvsroot/iaxclient co -P iaxclient
+
+* Installation
+
+tcliaxc uses autotools to build, so, in the simplest
+case you'd just type the usual ./configure and make
+command sequence.
+
+If iaxclient library is placed out of ld scope you need to provide to
+configure script the right flags:
+
+./configure LDFLAGS=-L/path/to/iaxclientlib CPPFLAGS=-I/path/to/iaxclientlib
+
+If you need to rebuild configure script, just use
+autoconf.
+
+By now no install operation has been provided but it's
+on out todo list. The Tcl extension build and its
+pkgIndex should be placed in the appropriate path.
+
+Note:
+
+if on configuring you get a strange error stating:
+checking system version (for dynamic loading)... ./configure: line xxxx: syntax error near unexpected token `)'
+you should take a look at:
+http://groups.google.it/group/linux.debian.bugs.dist/browse_frm/thread/4384c64f728417d3/9e0f02be2ae1ce14?lnk=st&q=%22checking+system+version+(for+dynamic+loading)%22+syntax+error++unexpected+token&rnum=6&hl=it#9e0f02be2ae1ce14
+
+basically you have to drop a ' sign like this:
+
+--- configure.orig 2006-02-02 14:13:13 +0100
++++ configure   2006-02-02 14:13:06 +0100
+@@ -7718,7 +7718,7 @@
+            # results, and the version is kept in special file).
+
+            if test -r /etc/.relid -a "X`uname -n`" = "X`uname -s`" ; then
+-               system=MP-RAS-`awk '{print }' /etc/.relid'`
++               system=MP-RAS-`awk '{print }' /etc/.relid`
+            fi
+            if test "`uname -s`" = "AIX" ; then
+                system=AIX-`uname -v`.`uname -r`
+
+This has been spotted out on an Ubuntu 6.04 "Dapper Drake"
+(devel branch).
+
+stay tuned!

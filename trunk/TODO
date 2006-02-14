@@ -1,0 +1,7 @@
+installation
+	- add an install target to make
+	- build a dll for windows systems
+
+iaxc
+ - check for security issues (on string allocation)
+ - doc
