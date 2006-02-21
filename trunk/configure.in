@@ -3,7 +3,7 @@ dnl	This file is an input file used by the GNU "autoconf" program to
 dnl	generate the file "configure", which is run during Tcl installation
 dnl	to configure the system for the local environment.
 #
-# RCS: @(#) $Id: configure.in,v 1.44 2005/09/13 22:06:49 hobbs Exp $
+# RCS: @(#) $Id: configure.in,v 1.46 2006/01/23 19:18:55 hobbs Exp $
 
 #-----------------------------------------------------------------------
 # Sample configure.in for Tcl Extensions.  The only places you should
@@ -27,12 +27,11 @@ AC_INIT([iaxc], [0.1])
 # as well as PKG_LIB_FILE and PKG_STUB_LIB_FILE.
 #--------------------------------------------------------------------
 
-TEA_INIT([3.3])
+TEA_INIT([3.5])
 
 AC_CONFIG_AUX_DIR(tclconfig)
 
 AC_SUBST(LIBS, ["${LIBS} -lm -lpthread"])
-AC_SUBST(CPPFLAGS, ["${CPPFLAGS} -I."])
 
 AC_CHECK_LIB(iaxclient, iaxc_initialize, , AC_MSG_ERROR(["Sorry I can't find libiaxclient"]))
 
@@ -78,8 +77,8 @@ TEA_SETUP_COMPILER
 
 TEA_ADD_SOURCES([iaxc.c tones.c])
 TEA_ADD_HEADERS([])
-TEA_ADD_INCLUDES([\"${CPPFLAGS} -I.\"])
-TEA_ADD_LIBS([\"${LDFLAGS} -liaxclient\"])
+TEA_ADD_INCLUDES([\"${CPPFLAGS}\"])
+TEA_ADD_LIBS([\"${LDFLAGS}\"])
 TEA_ADD_CFLAGS([])
 TEA_ADD_STUB_SOURCES([])
 TEA_ADD_TCL_SOURCES([])
@@ -100,11 +99,12 @@ TEA_ADD_TCL_SOURCES([])
 
 if test "${TEA_PLATFORM}" = "windows" ; then
     AC_DEFINE(BUILD_iaxc, 1, [Build windows export dll])
-    CLEANFILES="pkgIndex.tcl *.lib *.dll *.exp *.ilk *.pdb vc*.pch"
+    CLEANFILES="*.lib *.dll *.exp *.ilk *.pdb vc*.pch"
+	TEA_ADD_INCLUDES([--mno-cygwin])
     #TEA_ADD_SOURCES([win/winFile.c])
     #TEA_ADD_INCLUDES([-I\"$(${CYGPATH} ${srcdir}/win)\"])
 else
-    CLEANFILES="pkgIndex.tcl"
+    CLEANFILES=""
     #TEA_ADD_SOURCES([unix/unixFile.c])
     #TEA_ADD_LIBS([-lsuperfly])
 fi
