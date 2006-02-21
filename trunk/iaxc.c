@@ -37,7 +37,12 @@
 #include <string.h>
 #include <tcl.h>
 #include <iaxclient.h>
-#include <iaxc.h>
+
+#ifdef BUILD_iaxc
+#include <windows.h>
+#endif
+
+#include "iaxc.h"
 
 extern void tone_dtmf(char tone, int samples, double vol, short *data);
 
@@ -59,6 +64,7 @@ typedef struct {
 static iaxcCmd commands[] = {
 	{"iaxcInit", "::iaxc::iaxcInit", iaxcInitCmd},
 	{"iaxcRegister", "::iaxc::iaxcRegister", iaxcRegisterCmd},
+	{"iaxcAudioEncoding", "::iaxc::iaxcAudioEncoding", iaxcAudioEncoding},
 	{"iaxcCall", "::iaxc::iaxcCall", iaxcCallCmd},
 	{"iaxcHangUp", "::iaxc::iaxcHangUp",iaxcHangUpCmd },
 	{"iaxcSendDtmf", "::iaxc::iaxcSendDtmf",iaxcSendDtmfCmd },
@@ -71,6 +77,7 @@ int
 Iaxc_Init (Tcl_Interp *interp)
 {
 	iaxcCmd *cmdPtr;
+	Tcl_Obj *codec_val, *codec_name;
 
 	if (Tcl_InitStubs(interp, "8.3", 0) == NULL)
 		return TCL_ERROR;
@@ -87,7 +94,31 @@ Iaxc_Init (Tcl_Interp *interp)
 	
 	if (Tcl_Eval(interp, "namespace eval ::iaxc namespace export *") == TCL_ERROR)
 		return TCL_ERROR;
+
+	/*
+	 * set available codecs on ::iaxc namespace
+	 */
+
+	codec_val = Tcl_NewIntObj(1 << 1);
+	codec_name = Tcl_NewStringObj("::iaxc::IAXC_FORMAT_GSM", -1);
+	Tcl_ObjSetVar2(interp, codec_name, NULL, codec_val, 0);
 	
+	codec_val = Tcl_NewIntObj(1 << 2);
+	codec_name = Tcl_NewStringObj("::iaxc::IAXC_FORMAT_ULAW", -1);
+	Tcl_ObjSetVar2(interp, codec_name, NULL, codec_val, 0);
+	
+	codec_val = Tcl_NewIntObj(1 << 3);
+	codec_name = Tcl_NewStringObj("::iaxc::IAXC_FORMAT_ALAW", -1);
+	Tcl_ObjSetVar2(interp, codec_name, NULL, codec_val, 0);
+	
+	codec_val = Tcl_NewIntObj(1 << 9);
+	codec_name = Tcl_NewStringObj("::iaxc::IAXC_FORMAT_SPEEX", -1);
+	Tcl_ObjSetVar2(interp, codec_name, NULL, codec_val, 0);
+	
+	codec_val = Tcl_NewIntObj(1 << 10);
+	codec_name = Tcl_NewStringObj("::iaxc::IAXC_FORMAT_ILBC", -1);
+	Tcl_ObjSetVar2(interp, codec_name, NULL, codec_val, 0);
+
 	Tcl_PkgProvide(interp, "iaxc", "0.1");
 	return TCL_OK;
 }
@@ -398,6 +429,29 @@ iaxcRegisterCmd (ClientData data, Tcl_Interp *interp, int objc, Tcl_Obj *CONST o
 	host=Tcl_GetString(objv[3]);
 
 	iaxc_register(user, pass, host);
+
+	return TCL_OK;
+}
+
+
+/*
+ * set audio encoding format
+ */
+
+int
+iaxcAudioEncoding (ClientData data, Tcl_Interp *interp, int objc, Tcl_Obj *CONST objv[])
+{
+	int allowed_codecs = IAXC_FORMAT_GSM|IAXC_FORMAT_ULAW|IAXC_FORMAT_ALAW|IAXC_FORMAT_SPEEX|IAXC_FORMAT_ILBC;
+
+	if (objc != 2)
+	{
+		Tcl_WrongNumArgs(interp, 1, objv, "format");
+		return TCL_ERROR;
+	}
+	int codec;
+	Tcl_GetIntFromObj(interp, objv[1], &codec);
+
+	iaxc_set_formats(codec, allowed_codecs);
 
 	return TCL_OK;
 }
