@@ -30,10 +30,21 @@
  * SUCH DAMAGE.
  */
 
-int Iaxc_Init (Tcl_Interp *interp);
+#ifndef _TCLIAXC
+#define _TCLIAXC
+
+#ifdef BUILD_iaxc
+#undef TCL_STORAGE_CLASS
+#define TCL_STORAGE_CLASS DLLEXPORT
+#endif /* BUILD_iaxc */
+
+EXTERN int Iaxc_Init (Tcl_Interp *interp);
 int iaxcInitCmd(ClientData data, Tcl_Interp *interp, int objc, Tcl_Obj *CONST objv[]);
 int iaxcRegisterCmd(ClientData data, Tcl_Interp *interp, int objc, Tcl_Obj *CONST objv[]);
+int iaxcAudioEncoding(ClientData data, Tcl_Interp *interp, int objc, Tcl_Obj *CONST objv[]);
 int iaxcCallCmd(ClientData data, Tcl_Interp *interp, int objc, Tcl_Obj *CONST objv[]);
 int iaxcHangUpCmd(ClientData data, Tcl_Interp *interp, int objc, Tcl_Obj *CONST objv[]);
 int iaxcSendDtmfCmd(ClientData data, Tcl_Interp *interp, int objc, Tcl_Obj *CONST objv[]);
 int iaxcQuitCmd(ClientData data, Tcl_Interp *interp, int objc, Tcl_Obj *CONST objv[]);
+
+#endif /* _TCLIAXC */
