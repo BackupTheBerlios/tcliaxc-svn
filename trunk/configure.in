@@ -78,7 +78,7 @@ TEA_SETUP_COMPILER
 TEA_ADD_SOURCES([iaxc.c tones.c])
 TEA_ADD_HEADERS([])
 TEA_ADD_INCLUDES([\"${CPPFLAGS}\"])
-TEA_ADD_LIBS([\"${LDFLAGS}\"])
+TEA_ADD_LIBS([])
 TEA_ADD_CFLAGS([])
 TEA_ADD_STUB_SOURCES([])
 TEA_ADD_TCL_SOURCES([])
@@ -100,7 +100,8 @@ TEA_ADD_TCL_SOURCES([])
 if test "${TEA_PLATFORM}" = "windows" ; then
     AC_DEFINE(BUILD_iaxc, 1, [Build windows export dll])
     CLEANFILES="*.lib *.dll *.exp *.ilk *.pdb vc*.pch"
-	TEA_ADD_INCLUDES([--mno-cygwin])
+	AC_SUBST(SHLIB_CFLAGS, ["${SHLIB_CFLAGS} -mno-cygwin"])
+	#TEA_ADD_CFLAGS([\"-mno-cygwin\"])
     #TEA_ADD_SOURCES([win/winFile.c])
     #TEA_ADD_INCLUDES([-I\"$(${CYGPATH} ${srcdir}/win)\"])
 else

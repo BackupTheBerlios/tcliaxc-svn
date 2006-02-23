@@ -40,6 +40,9 @@
 
 #ifdef BUILD_iaxc
 #include <windows.h>
+#define FIXSLEEP Sleep(250)
+#else
+#define FIXSLEEP usleep(250000)
 #endif
 
 #include "iaxc.h"
@@ -481,7 +484,7 @@ iaxcCallCmd(ClientData data, Tcl_Interp *interp, int objc, Tcl_Obj *CONST objv[]
 	 * segfault. (see BUGS)
 	 */
 
-	usleep(250000);
+	FIXSLEEP;
 	
 	return TCL_OK;
 }
@@ -507,7 +510,7 @@ iaxcHangUpCmd(ClientData data, Tcl_Interp *interp, int objc, Tcl_Obj *CONST objv
 	 * segfault. (see BUGS)
 	 */
 
-	usleep(250000);
+	FIXSLEEP;
 	
 	return TCL_OK;
 }
