@@ -34,16 +34,16 @@ proc ::buggyPhone::call {phone} {
 				   	set msg [lindex $e 3]
 					.state delete 0 end
 					.state insert 0 $msg
-					if {[string match "*disconnected*" $msg] || [string match "Hanging*" $msg]} {
-						set ::buggyPhone::completed true
-						break
-					}
 				} \
 				$::iaxc::IAXC_EVENT_LEVELS {
 				} \
 				$::iaxc::IAXC_EVENT_STATE {
 					set sta [lindex $e 2]
-					puts "processing state $sta"
+					if {![expr $sta & $::iaxc::IAXC_CALL_STATE_ACTIVE]} {
+						#call is NOT active (i.e. call's finished)
+						set ::buggyPhone::completed true
+						break
+					}
 				} \
 				$::iaxc::IAXC_EVENT_NETSTAT {
 				} \
