@@ -42,6 +42,7 @@
 #include <windows.h>
 #define FIXSLEEP Sleep(250)
 #else
+#include <pthread.h>
 #define FIXSLEEP usleep(250000)
 #endif
 
@@ -49,10 +50,8 @@
 
 extern void tone_dtmf(char tone, int samples, double vol, short *data);
 
-/* global cmd var... I'll try to put it away asap */
-Tcl_Obj *callback_cmd;
-Tcl_Obj *varName;
-Tcl_Interp *interp_cmd;
+MUTEX head_mutex;
+struct entry *head = NULL;
 
 /*
  * Create iaxc's commands
@@ -69,6 +68,7 @@ static iaxcCmd commands[] = {
 	{"iaxcRegister", "::iaxc::iaxcRegister", iaxcRegisterCmd},
 	{"iaxcAudioEncoding", "::iaxc::iaxcAudioEncoding", iaxcAudioEncoding},
 	{"iaxcCall", "::iaxc::iaxcCall", iaxcCallCmd},
+	{"iaxcGetEvents", "::iaxc::iaxcGetEvents", iaxcGetEvents},
 	{"iaxcHangUp", "::iaxc::iaxcHangUp",iaxcHangUpCmd },
 	{"iaxcSendDtmf", "::iaxc::iaxcSendDtmf",iaxcSendDtmfCmd },
 	{"iaxcQuit", "::iaxc::iaxcQuit",iaxcQuitCmd },
@@ -80,11 +80,12 @@ int
 Iaxc_Init (Tcl_Interp *interp)
 {
 	iaxcCmd *cmdPtr;
-	Tcl_Obj *codec_val, *codec_name;
+	Tcl_Obj *codec_val, *codec_name, *evt_val, *evt_name;
 
 	if (Tcl_InitStubs(interp, "8.3", 0) == NULL)
 		return TCL_ERROR;
 
+	MUTEXINIT(&head_mutex);
 
 	/* iaxc package commands */
 	
@@ -122,6 +123,38 @@ Iaxc_Init (Tcl_Interp *interp)
 	codec_name = Tcl_NewStringObj("::iaxc::IAXC_FORMAT_ILBC", -1);
 	Tcl_ObjSetVar2(interp, codec_name, NULL, codec_val, 0);
 
+	/*
+	 * set available event types
+	 */
+	
+	evt_val = Tcl_NewIntObj(1);
+	evt_name = Tcl_NewStringObj("::iaxc::IAXC_EVENT_TEXT", -1);
+	Tcl_ObjSetVar2(interp, evt_name, NULL, evt_val, 0);
+	
+	evt_val = Tcl_NewIntObj(2);
+	evt_name = Tcl_NewStringObj("::iaxc::IAXC_EVENT_LEVELS", -1);
+	Tcl_ObjSetVar2(interp, evt_name, NULL, evt_val, 0);
+	
+	evt_val = Tcl_NewIntObj(3);
+	evt_name = Tcl_NewStringObj("::iaxc::IAXC_EVENT_STATE", -1);
+	Tcl_ObjSetVar2(interp, evt_name, NULL, evt_val, 0);
+	
+	evt_val = Tcl_NewIntObj(4);
+	evt_name = Tcl_NewStringObj("::iaxc::IAXC_EVENT_NETSTAT", -1);
+	Tcl_ObjSetVar2(interp, evt_name, NULL, evt_val, 0);
+	
+	evt_val = Tcl_NewIntObj(5);
+	evt_name = Tcl_NewStringObj("::iaxc::IAXC_EVENT_URL", -1);
+	Tcl_ObjSetVar2(interp, evt_name, NULL, evt_val, 0);
+	
+	evt_val = Tcl_NewIntObj(6);
+	evt_name = Tcl_NewStringObj("::iaxc::IAXC_EVENT_VIDEO", -1);
+	Tcl_ObjSetVar2(interp, evt_name, NULL, evt_val, 0);
+	
+	evt_val = Tcl_NewIntObj(7);
+	evt_name = Tcl_NewStringObj("::iaxc::IAXC_EVENT_REGISTRATION", -1);
+	Tcl_ObjSetVar2(interp, evt_name, NULL, evt_val, 0);
+
 	Tcl_PkgProvide(interp, "iaxc", "0.1");
 	return TCL_OK;
 }
@@ -131,205 +164,17 @@ Iaxc_Init (Tcl_Interp *interp)
  */
 
 int
-callback(iaxc_event e)
+callback(iaxc_event evt)
 {
-	/* use the right interpreter
-	 * i.e. the one used on init phase
-	 */
+	struct entry *e = malloc(sizeof(struct entry));
 
-	Tcl_Interp *interp=interp_cmd;
-	Tcl_Obj *val, *key;
-	int ret;
+	e->evt = evt;
 
-	/*
-	 * set vars used in the supplied script
-	 */
+	MUTEXLOCK(&head_mutex);
+	e->next=head;
+	head=e;
+	MUTEXUNLOCK(&head_mutex);
 
-	val=Tcl_NewIntObj(e.type);
-	key=Tcl_NewStringObj("etype", -1);
-	Tcl_ObjSetVar2(interp, varName, key, val, 0);
-
-	switch (e.type)
-	{
-		case IAXC_EVENT_TEXT:
-			/*
-			 * int type
-			 * int callNo
-			 * char message[IAXC_EVENT_BUFSIZ]
-			 */
-			key=Tcl_NewStringObj("type", -1);
-			val=Tcl_NewIntObj(e.ev.text.type);
-			Tcl_ObjSetVar2(interp, varName, key, val, 0);
-
-			key=Tcl_NewStringObj("callNo", -1);
-			val=Tcl_NewIntObj(e.ev.text.callNo);
-			Tcl_ObjSetVar2(interp, varName, key, val, 0);
-
-			key=Tcl_NewStringObj("message", -1);
-			val=Tcl_NewStringObj(e.ev.text.message, -1);
-			Tcl_ObjSetVar2(interp, varName, key, val, 0);
-
-			break;
-		case IAXC_EVENT_LEVELS:
-			/*
-			 * 	float input;
-			 * 	float output;
-			*/
-
-			key=Tcl_NewStringObj("input", -1);
-			val=Tcl_NewDoubleObj(e.ev.levels.input);
-			Tcl_ObjSetVar2(interp, varName, key, val, 0);
-
-			key=Tcl_NewStringObj("output", -1);
-			val=Tcl_NewDoubleObj(e.ev.levels.output);
-			Tcl_ObjSetVar2(interp, varName, key, val, 0);
-
-			break;
-		case IAXC_EVENT_STATE:
-			/*
-			 *     int callNo;
-			 *     int state;
-			 *     int format;
-			 *     char remote[IAXC_EVENT_BUFSIZ];
-			 *     char remote_name[IAXC_EVENT_BUFSIZ];
-			 *     char local[IAXC_EVENT_BUFSIZ];
-			 *     char local_context[IAXC_EVENT_BUFSIZ];
-			 */
-		
-			key=Tcl_NewStringObj("callNo", -1);
-			val=Tcl_NewIntObj(e.ev.call.callNo);
-			Tcl_ObjSetVar2(interp, varName, key, val, 0);
-
-			key=Tcl_NewStringObj("state", -1);
-			val=Tcl_NewIntObj(e.ev.call.state);
-			Tcl_ObjSetVar2(interp, varName, key, val, 0);
-			
-			key=Tcl_NewStringObj("format", -1);
-			val=Tcl_NewIntObj(e.ev.call.format);
-			Tcl_ObjSetVar2(interp, varName, key, val, 0);
-			
-			key=Tcl_NewStringObj("remote", -1);
-			val=Tcl_NewStringObj(e.ev.call.remote, -1);
-			Tcl_ObjSetVar2(interp, varName, key, val, 0);
-			
-			key=Tcl_NewStringObj("remote_name", -1);
-			val=Tcl_NewStringObj(e.ev.call.remote_name, -1);
-			Tcl_ObjSetVar2(interp, varName, key, val, 0);
-			
-			key=Tcl_NewStringObj("local", -1);
-			val=Tcl_NewStringObj(e.ev.call.local, -1);
-			Tcl_ObjSetVar2(interp, varName, key, val, 0);
-			
-			key=Tcl_NewStringObj("local_context", -1);
-			val=Tcl_NewStringObj(e.ev.call.local_context, -1);
-			Tcl_ObjSetVar2(interp, varName, key, val, 0);
-
-			break;
-		case IAXC_EVENT_NETSTAT:
-			/*
-			 * int callNo;
-			 * int rtt;
-			 * struct iaxc_netstat local;
-			 * struct iaxc_netstat remote;
-			 */
-			
-			key=Tcl_NewStringObj("callNo", -1);
-			val=Tcl_NewIntObj(e.ev.netstats.callNo);
-			Tcl_ObjSetVar2(interp, varName, key, val, 0);
-
-			key=Tcl_NewStringObj("rtt", -1);
-			val=Tcl_NewIntObj(e.ev.netstats.rtt);
-			Tcl_ObjSetVar2(interp, varName, key, val, 0);
-
-			/* how can I report local and remote?? TODO */
-			break;
-		case IAXC_EVENT_URL:
-			/*
-			 * int callNo;
-			 * int type;
-			 * char url[IAXC_EVENT_BUFSIZ];
-			 */
-
-			key=Tcl_NewStringObj("callNo", -1);
-			val=Tcl_NewIntObj(e.ev.url.callNo);
-			Tcl_ObjSetVar2(interp, varName, key, val, 0);
-
-			key=Tcl_NewStringObj("type", -1);
-			val=Tcl_NewIntObj(e.ev.url.type);
-			Tcl_ObjSetVar2(interp, varName, key, val, 0);
-			
-			key=Tcl_NewStringObj("url", -1);
-			val=Tcl_NewStringObj(e.ev.url.url, -1);
-			Tcl_ObjSetVar2(interp, varName, key, val, 0);
-
-			break;
-		case IAXC_EVENT_VIDEO:
-			/*
-			 * int callNo;
-			 * int format;
-			 * int width;
-			 * int height;
-			 * unsigned char *data;
-			 */
-
-			key=Tcl_NewStringObj("callNo", -1);
-			val=Tcl_NewIntObj(e.ev.video.callNo);
-			Tcl_ObjSetVar2(interp, varName, key, val, 0);
-
-			key=Tcl_NewStringObj("format", -1);
-			val=Tcl_NewIntObj(e.ev.video.format);
-			Tcl_ObjSetVar2(interp, varName, key, val, 0);
-
-			key=Tcl_NewStringObj("width", -1);
-			val=Tcl_NewIntObj(e.ev.video.width);
-			Tcl_ObjSetVar2(interp, varName, key, val, 0);
-
-			key=Tcl_NewStringObj("height", -1);
-			val=Tcl_NewIntObj(e.ev.video.height);
-			Tcl_ObjSetVar2(interp, varName, key, val, 0);
-
-			key=Tcl_NewStringObj("data", -1);
-			val=Tcl_NewStringObj((char *)(e.ev.video.data), -1);
-			Tcl_ObjSetVar2(interp, varName, key, val, 0);
-
-			break;
-		case IAXC_EVENT_REGISTRATION:
-			/*
-			 * int id;
-			 * int reply;
-			 * int msgcount;
-			 */
-			
-			key=Tcl_NewStringObj("id", -1);
-			val=Tcl_NewIntObj(e.ev.reg.id);
-			Tcl_ObjSetVar2(interp, varName, key, val, 0);
-
-			key=Tcl_NewStringObj("reply", -1);
-			val=Tcl_NewIntObj(e.ev.reg.reply);
-			Tcl_ObjSetVar2(interp, varName, key, val, 0);
-
-			key=Tcl_NewStringObj("msgcount", -1);
-			val=Tcl_NewIntObj(e.ev.reg.msgcount);
-			Tcl_ObjSetVar2(interp, varName, key, val, 0);
-
-			break;
-	}
-
-
-	/*
-	 * execute the user's script; on error put a 
-	 * message on stderr and return -1
-	 */
-
-	if ((ret=Tcl_EvalObjEx(interp, callback_cmd, 0)) != TCL_OK)
-	{
-		Tcl_Obj *res=Tcl_GetObjResult(interp);
-		char *strres=Tcl_GetStringFromObj(res, NULL);
-		perror(strres);
-		return -1;
-	}
-	
-	/* why 1?? copyed from iaxcli.c line 616*/
 	return 1;
 }
 
@@ -348,9 +193,9 @@ iaxcInitCmd (ClientData data, Tcl_Interp *interp, int objc, Tcl_Obj *CONST objv[
 	 * nCalls [optional] unknown
 	 */
 	
-	if (objc > 5 || objc < 3)
+	if (objc > 3)
 	{
-		Tcl_WrongNumArgs(interp, 1, objv, "varName cmd ?audio type? ?nCalls?");
+		Tcl_WrongNumArgs(interp, 1, objv, "?audio type? ?nCalls?");
 		return TCL_ERROR;
 	}
 
@@ -365,30 +210,30 @@ iaxcInitCmd (ClientData data, Tcl_Interp *interp, int objc, Tcl_Obj *CONST objv[
 	 * store the varName into a global variable
 	 */
 	
-	varName=Tcl_DuplicateObj(objv[1]);
-	Tcl_IncrRefCount(varName);
+	//varName=Tcl_DuplicateObj(objv[1]);
+	//Tcl_IncrRefCount(varName);
 
 	/*
 	 * store the script to be execute on iax event
 	 * handling on a global variable
 	 */
 	
-	callback_cmd=Tcl_DuplicateObj(objv[2]);
-	Tcl_IncrRefCount(callback_cmd);
+	//callback_cmd=Tcl_DuplicateObj(objv[2]);
+	//Tcl_IncrRefCount(callback_cmd);
 
 	/*
 	 * read optional parameters if any
 	 */
 	
-	if (objc >= 4)
+	if (objc >= 2)
 	{
-		if(Tcl_GetIntFromObj(interp, objv[3], &audType) != TCL_OK)
+		if(Tcl_GetIntFromObj(interp, objv[1], &audType) != TCL_OK)
 			return TCL_ERROR;
 	}
 
-	if (objc == 5)
+	if (objc == 3)
 	{
-		if(Tcl_GetIntFromObj(interp, objv[4], &nCalls) != TCL_OK)
+		if(Tcl_GetIntFromObj(interp, objv[2], &nCalls) != TCL_OK)
 			return TCL_ERROR;
 	}
 
@@ -402,7 +247,6 @@ iaxcInitCmd (ClientData data, Tcl_Interp *interp, int objc, Tcl_Obj *CONST objv[
 
 	iaxc_set_silence_threshold(-99.0); /* the default */
 	iaxc_set_audio_output(0);   /* the default */
-	interp_cmd=interp;
 	iaxc_set_event_callback(callback);
 	iaxc_start_processing_thread();
 
@@ -489,6 +333,163 @@ iaxcCallCmd(ClientData data, Tcl_Interp *interp, int objc, Tcl_Obj *CONST objv[]
 	return TCL_OK;
 }
 
+int
+iaxcGetEvents(ClientData data, Tcl_Interp *interp, int objc, Tcl_Obj *CONST objv[])
+{
+	struct entry *myHead, *evt, *tmp;
+	Tcl_Obj *varName, *elm_list, *evt_list, *val[8];
+	iaxc_event e;
+	
+	if (objc != 2)
+	{
+		Tcl_WrongNumArgs(interp, 1, objv, "varName");
+		return TCL_ERROR;
+	}
+	
+	varName=objv[1];
+	
+	MUTEXLOCK(&head_mutex);
+	myHead=head;
+	head=NULL;
+	MUTEXUNLOCK(&head_mutex);
+
+
+	/* create an empty list as a first result */
+	
+	evt_list = Tcl_NewListObj(0, NULL);
+	
+	for (evt=myHead; evt!=NULL; evt=evt->next) {
+		e = evt->evt;
+		elm_list = NULL;
+		switch (e.type)
+		{
+			case IAXC_EVENT_TEXT:
+				/*
+				 * int type
+				 * int callNo
+				 * char message[IAXC_EVENT_BUFSIZ]
+				 */
+				val[0] = Tcl_NewIntObj(e.type);
+				val[1] = Tcl_NewIntObj(e.ev.text.type);
+				val[2] = Tcl_NewIntObj(e.ev.text.callNo);
+				val[3] = Tcl_NewStringObj(e.ev.text.message, -1);
+
+				elm_list = Tcl_NewListObj(4, val);
+				break;
+			case IAXC_EVENT_LEVELS:
+				/*
+				 * 	float input;
+				 * 	float output;
+				 */
+
+				val[0] = Tcl_NewIntObj(e.type);
+				val[1] = Tcl_NewDoubleObj(e.ev.levels.input);
+				val[2] = Tcl_NewDoubleObj(e.ev.levels.output);
+
+				elm_list = Tcl_NewListObj(3, val);
+				break;
+			case IAXC_EVENT_STATE:
+				/*
+				 *     int callNo;
+				 *     int state;
+				 *     int format;
+				 *     char remote[IAXC_EVENT_BUFSIZ];
+				 *     char remote_name[IAXC_EVENT_BUFSIZ];
+				 *     char local[IAXC_EVENT_BUFSIZ];
+				 *     char local_context[IAXC_EVENT_BUFSIZ];
+				 */
+
+				val[0] = Tcl_NewIntObj(e.type);
+				val[1] = Tcl_NewIntObj(e.ev.call.callNo);
+				val[2] = Tcl_NewIntObj(e.ev.call.state);
+				val[3] = Tcl_NewIntObj(e.ev.call.format);
+				val[4] = Tcl_NewStringObj(e.ev.call.remote, -1);
+				val[5] = Tcl_NewStringObj(e.ev.call.remote_name, -1);
+				val[6] = Tcl_NewStringObj(e.ev.call.local, -1);
+				val[7] = Tcl_NewStringObj(e.ev.call.local_context, -1);
+
+				elm_list = Tcl_NewListObj(8, val);
+				break;
+			case IAXC_EVENT_NETSTAT:
+				/*
+				 * int callNo;
+				 * int rtt;
+				 * struct iaxc_netstat local;
+				 * struct iaxc_netstat remote;
+				 */
+
+				val[0] = Tcl_NewIntObj(e.type);
+				val[1] = Tcl_NewIntObj(e.ev.netstats.callNo);
+				val[2] = Tcl_NewIntObj(e.ev.netstats.rtt);
+				/* how can I report local and remote?? TODO */
+
+				elm_list = Tcl_NewListObj(3, val);
+				break;
+			case IAXC_EVENT_URL:
+				/*
+				 * int callNo;
+				 * int type;
+				 * char url[IAXC_EVENT_BUFSIZ];
+				 */
+
+				val[0] = Tcl_NewIntObj(e.type);
+				val[1] = Tcl_NewIntObj(e.ev.url.callNo);
+				val[2] = Tcl_NewIntObj(e.ev.url.type);
+				val[3] = Tcl_NewStringObj(e.ev.url.url, -1);
+
+				elm_list = Tcl_NewListObj(4, val);
+				break;
+			case IAXC_EVENT_VIDEO:
+				/*
+				 * int callNo;
+				 * int format;
+				 * int width;
+				 * int height;
+				 * unsigned char *data;
+				 */
+
+				val[0] = Tcl_NewIntObj(e.type);
+				val[1] = Tcl_NewIntObj(e.ev.video.callNo);
+				val[2] = Tcl_NewIntObj(e.ev.video.format);
+				val[3] = Tcl_NewIntObj(e.ev.video.width);
+				val[4] = Tcl_NewIntObj(e.ev.video.height);
+				val[5] = Tcl_NewStringObj((char *)(e.ev.video.data), -1);
+
+				elm_list = Tcl_NewListObj(6, val);
+				break;
+			case IAXC_EVENT_REGISTRATION:
+				/*
+				 * int id;
+				 * int reply;
+				 * int msgcount;
+				 */
+
+				val[0] = Tcl_NewIntObj(e.type);
+				val[1] = Tcl_NewIntObj(e.ev.reg.id);
+				val[2] = Tcl_NewIntObj(e.ev.reg.reply);
+				val[3] = Tcl_NewIntObj(e.ev.reg.msgcount);
+
+				elm_list = Tcl_NewListObj(4, val);
+				break;
+		}
+
+		if (elm_list != NULL) 
+				Tcl_ListObjAppendElement(NULL, evt_list, elm_list);
+		
+	}
+
+	evt=myHead;
+	while (evt != NULL) {
+		tmp=evt;
+		evt=evt->next;
+		free(tmp);
+	}
+
+	Tcl_ObjSetVar2(interp, varName, NULL, evt_list, 0);
+
+	return TCL_OK;
+}
+
 /*
  * hang up (any comment needed?)
  */
@@ -564,7 +565,22 @@ iaxcSendDtmfCmd(ClientData data, Tcl_Interp *interp, int objc, Tcl_Obj *CONST ob
 int
 iaxcQuitCmd(ClientData data, Tcl_Interp *interp, int objc, Tcl_Obj *CONST objv[])
 {
+	struct entry *myHead, *evt, *tmp;
+	
 	iaxc_shutdown();
 	iaxc_stop_processing_thread();
+	
+	MUTEXLOCK(&head_mutex);
+	evt=myHead=head;
+	head=NULL;
+	MUTEXUNLOCK(&head_mutex);
+	MUTEXDESTROY(&head_mutex);
+
+	while (evt != NULL) {
+		tmp = evt;
+		evt = evt->next;
+		free(tmp);
+	}
+	
 	return TCL_OK;
 }

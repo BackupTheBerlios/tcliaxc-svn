@@ -38,11 +38,33 @@
 #define TCL_STORAGE_CLASS DLLEXPORT
 #endif /* BUILD_iaxc */
 
+/* os-dependent mutex macros */
+#ifdef BUILD_iaxc
+#define MUTEX CRITICAL_SECTION
+#define MUTEXINIT(m) InitializeCriticalSection(m)
+#define MUTEXLOCK(m) EnterCriticalSection(m)
+#define MUTEXUNLOCK(m) LeaveCriticalSection(m)
+#define MUTEXDESTROY(m) DeleteCriticalSection(m)
+
+#else
+#define MUTEX pthread_mutex_t
+#define MUTEXINIT(m) pthread_mutex_init(m, NULL) //TODO: check error
+#define MUTEXLOCK(m) pthread_mutex_lock(m)
+#define MUTEXUNLOCK(m) pthread_mutex_unlock(m)
+#define MUTEXDESTROY(m) pthread_mutex_destroy(m)
+#endif /* BUILD_iaxc */
+
+struct entry {
+	iaxc_event evt;
+	struct entry *next;
+};
+
 EXTERN int Iaxc_Init (Tcl_Interp *interp);
 int iaxcInitCmd(ClientData data, Tcl_Interp *interp, int objc, Tcl_Obj *CONST objv[]);
 int iaxcRegisterCmd(ClientData data, Tcl_Interp *interp, int objc, Tcl_Obj *CONST objv[]);
 int iaxcAudioEncoding(ClientData data, Tcl_Interp *interp, int objc, Tcl_Obj *CONST objv[]);
 int iaxcCallCmd(ClientData data, Tcl_Interp *interp, int objc, Tcl_Obj *CONST objv[]);
+int iaxcGetEvents(ClientData data, Tcl_Interp *interp, int objc, Tcl_Obj *CONST objv[]);
 int iaxcHangUpCmd(ClientData data, Tcl_Interp *interp, int objc, Tcl_Obj *CONST objv[]);
 int iaxcSendDtmfCmd(ClientData data, Tcl_Interp *interp, int objc, Tcl_Obj *CONST objv[]);
 int iaxcQuitCmd(ClientData data, Tcl_Interp *interp, int objc, Tcl_Obj *CONST objv[]);
