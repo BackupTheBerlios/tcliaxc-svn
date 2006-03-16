@@ -2,7 +2,6 @@
 # This line continues for Tcl, but is a single line for 'sh' \
 exec wish "$0" -- ${1+"$@"}
 
-lappend auto_path .
 package require Tk
 package require iaxc
 
@@ -23,6 +22,41 @@ proc ::buggyPhone::call {phone} {
 	set phoneNumber "$::buggyPhone::user:$::buggyPhone::pwd@$::buggyPhone::host/$phone"
 	iaxcCall $phoneNumber
 	set ::buggyPhone::state "calling"
+	set ::buggyPhone::completed false
+	
+	while {!$::buggyPhone::completed} {
+		set evtList [list]
+		iaxcGetEvents evtList
+		foreach e $evtList {
+			set type [lindex $e 0]
+			switch -exact -- $type \
+				$::iaxc::IAXC_EVENT_TEXT {
+				   	set msg [lindex $e 3]
+					.state delete 0 end
+					.state insert 0 $msg
+					if {[string match "*disconnected*" $msg] || [string match "Hanging*" $msg]} {
+						set ::buggyPhone::completed true
+						break
+					}
+				} \
+				$::iaxc::IAXC_EVENT_LEVELS {
+				} \
+				$::iaxc::IAXC_EVENT_STATE {
+					set sta [lindex $e 2]
+					puts "processing state $sta"
+				} \
+				$::iaxc::IAXC_EVENT_NETSTAT {
+				} \
+				$::iaxc::IAXC_EVENT_URL {
+				} \
+				$::iaxc::IAXC_EVENT_VIDEO {
+				} \
+				$::iaxc::IAXC_EVENT_REGISTRATION {
+				} \
+		}
+		update
+	}
+	.hang invoke
 }
 
 proc ::buggyPhone::sendTone {digit} {
@@ -48,6 +82,7 @@ proc ::buggyPhone::digitPress {digit} {
 entry .phone -bg white
 button .call -text "Call" -command {::buggyPhone::call [.phone get]}
 button .hang -text "Hangup" -command {iaxcHangUp; set ::buggyPhone::state "idle"}
+entry .state -bg white
 
 frame .keyboard
 
@@ -80,9 +115,10 @@ grid .keyboard.7 .keyboard.8 .keyboard.9 -sticky news -padx 5 -pady 5
 grid .keyboard.* .keyboard.0 .keyboard.# -sticky news -padx 5 -pady 5
 
 grid .phone .call .hang -sticky news
-grid .keyboard - - -sticky news 
+grid .keyboard - - -sticky news
+grid .state - - -sticky news
 
-iaxcInit type {}
+iaxcInit
 
 set ::buggyPhone::user foo 
 set ::buggyPhone::pwd bar
