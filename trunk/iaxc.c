@@ -155,6 +155,42 @@ Iaxc_Init (Tcl_Interp *interp)
 	evt_name = Tcl_NewStringObj("::iaxc::IAXC_EVENT_REGISTRATION", -1);
 	Tcl_ObjSetVar2(interp, evt_name, NULL, evt_val, 0);
 
+	/*
+	 * available states for a call (contained in an state event)
+	 */
+	
+	evt_val = Tcl_NewIntObj(IAXC_CALL_STATE_FREE);
+	evt_name = Tcl_NewStringObj("::iaxc::IAXC_CALL_STATE_FREE", -1);
+	Tcl_ObjSetVar2(interp, evt_name, NULL, evt_val, 0);
+
+	evt_val = Tcl_NewIntObj(IAXC_CALL_STATE_ACTIVE);
+	evt_name = Tcl_NewStringObj("::iaxc::IAXC_CALL_STATE_ACTIVE", -1);
+	Tcl_ObjSetVar2(interp, evt_name, NULL, evt_val, 0);
+
+	evt_val = Tcl_NewIntObj(IAXC_CALL_STATE_OUTGOING);
+	evt_name = Tcl_NewStringObj("::iaxc::IAXC_CALL_STATE_OUTGOING", -1);
+	Tcl_ObjSetVar2(interp, evt_name, NULL, evt_val, 0);
+
+	evt_val = Tcl_NewIntObj(IAXC_CALL_STATE_RINGING);
+	evt_name = Tcl_NewStringObj("::iaxc::IAXC_CALL_STATE_RINGING", -1);
+	Tcl_ObjSetVar2(interp, evt_name, NULL, evt_val, 0);
+
+	evt_val = Tcl_NewIntObj(IAXC_CALL_STATE_COMPLETE);
+	evt_name = Tcl_NewStringObj("::iaxc::IAXC_CALL_STATE_COMPLETE", -1);
+	Tcl_ObjSetVar2(interp, evt_name, NULL, evt_val, 0);
+
+	evt_val = Tcl_NewIntObj(IAXC_CALL_STATE_SELECTED);
+	evt_name = Tcl_NewStringObj("::iaxc::IAXC_CALL_STATE_SELECTED", -1);
+	Tcl_ObjSetVar2(interp, evt_name, NULL, evt_val, 0);
+
+	evt_val = Tcl_NewIntObj(IAXC_CALL_STATE_BUSY);
+	evt_name = Tcl_NewStringObj("::iaxc::IAXC_CALL_STATE_BUSY", -1);
+	Tcl_ObjSetVar2(interp, evt_name, NULL, evt_val, 0);
+
+	evt_val = Tcl_NewIntObj(IAXC_CALL_STATE_TRANSFER);
+	evt_name = Tcl_NewStringObj("::iaxc::IAXC_CALL_STATE_TRANSFER", -1);
+	Tcl_ObjSetVar2(interp, evt_name, NULL, evt_val, 0);
+
 	Tcl_PkgProvide(interp, "iaxc", "0.1");
 	return TCL_OK;
 }
