@@ -14,6 +14,44 @@ namespace eval ::buggyPhone {
 	variable state "idle"
 }
 
+proc ::buggyPhone::configPhone {} {
+	set w .configPhone
+	set title "buggyPhone - configuration"
+	catch {destroy $w}
+    set focus [focus]
+	toplevel $w -relief solid -class TkSDialog
+
+	wm title $w $title
+	wm iconname $w $title
+	wm transient $w [winfo toplevel [winfo parent $w]]
+
+	set msg [message $w.msg -text "In order to use buggyPhone you've to specify the following \
+		parameters to authenticate against your IAX provider" -width 400]
+	set lblUser [label $w.lbluser -text "User"]
+	set user [entry $w.user -bg white]
+	set lblPwd [label $w.lblpwd -text "Password"]
+	set pwd [entry $w.pwd -bg white]
+	set lblHost [label $w.lblhost -text "Host"]
+	set host [entry $w.host -bg white]
+
+	set bts [frame $w.bts]
+	set ok [button $bts.ok -text "Ok" -command {
+		set ::buggyPhone::user [.configPhone.user get]
+		set ::buggyPhone::pwd [.configPhone.pwd get]
+		set ::buggyPhone::host [.configPhone.host get]
+		destroy .configPhone
+	}]
+	set cancel [button $bts.cancel -text "Cancel" -command {destroy .configPhone}]
+
+	grid $cancel $ok -sticky se -padx [list 3 0]
+
+	grid $msg - -sticky news -pady 6 -padx 6
+	grid $lblUser $user -sticky nsw -pady 6 -padx 6
+	grid $lblPwd $pwd -sticky nsw -pady 6 -padx 6
+	grid $lblHost $host -sticky nsw -pady 6 -padx 6
+	grid $bts - -sticky se -padx 6 -pady 6
+}
+
 proc ::buggyPhone::call {phone} {
 	if {$::buggyPhone::state != "idle"} {
 		tk_dialog .bad "Error" "You cannot make a call if you aren't in a idle state" error 0 Ok
@@ -25,34 +63,33 @@ proc ::buggyPhone::call {phone} {
 	set ::buggyPhone::completed false
 	
 	while {!$::buggyPhone::completed} {
-		set evtList [list]
-		iaxcGetEvents evtList
-		foreach e $evtList {
+		foreach e [::iaxc::iaxcGetEvents] {
 			set type [lindex $e 0]
-			switch -exact -- $type \
-				$::iaxc::IAXC_EVENT_TEXT {
+			switch -exact -- $type { 
+				"text" {
 				   	set msg [lindex $e 3]
 					.state delete 0 end
 					.state insert 0 $msg
-				} \
-				$::iaxc::IAXC_EVENT_LEVELS {
-				} \
-				$::iaxc::IAXC_EVENT_STATE {
+				}
+				"levels" {
+				}
+				"state" {
 					set sta [lindex $e 2]
 					if {![expr $sta & $::iaxc::IAXC_CALL_STATE_ACTIVE]} {
 						#call is NOT active (i.e. call's finished)
 						set ::buggyPhone::completed true
 						break
 					}
-				} \
-				$::iaxc::IAXC_EVENT_NETSTAT {
-				} \
-				$::iaxc::IAXC_EVENT_URL {
-				} \
-				$::iaxc::IAXC_EVENT_VIDEO {
-				} \
-				$::iaxc::IAXC_EVENT_REGISTRATION {
-				} \
+				}
+				"netstat" {
+				}
+				"url" {
+				}
+				"video" {
+				}
+				"registration" {
+				}
+			}
 		}
 		update
 	}
@@ -120,6 +157,12 @@ grid .state - - -sticky news
 
 iaxcInit
 
-set ::buggyPhone::user foo 
-set ::buggyPhone::pwd bar
-set ::buggyPhone::host "127.0.0.1"
+update
+
+if {$::buggyPhone::user eq "" || $::buggyPhone::pwd eq "" || $::buggyPhone::host eq ""} {
+	::buggyPhone::configPhone
+}
+
+#set ::buggyPhone::user foo 
+#set ::buggyPhone::pwd bar
+#set ::buggyPhone::host "127.0.0.1"
