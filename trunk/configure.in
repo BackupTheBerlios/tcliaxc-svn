@@ -100,7 +100,7 @@ TEA_ADD_TCL_SOURCES([])
 if test "${TEA_PLATFORM}" = "windows" ; then
     AC_DEFINE(BUILD_iaxc, 1, [Build windows export dll])
     CLEANFILES="*.lib *.dll *.exp *.ilk *.pdb vc*.pch"
-	AC_SUBST(SHLIB_CFLAGS, ["${SHLIB_CFLAGS} -mno-cygwin"])
+	AC_SUBST(SHLIB_CFLAGS, ["${LDFLAGS} ${SHLIB_CFLAGS} -mno-cygwin"])
 	#TEA_ADD_CFLAGS([\"-mno-cygwin\"])
     #TEA_ADD_SOURCES([win/winFile.c])
     #TEA_ADD_INCLUDES([-I\"$(${CYGPATH} ${srcdir}/win)\"])
