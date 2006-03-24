@@ -377,13 +377,14 @@ iaxcInitCmd (ClientData data, Tcl_Interp *interp, int objc, Tcl_Obj *CONST objv[
 	 */
 	
 	/*if (iaxc_initialize(audType,nCalls))*/
-	if (iaxc_initialize(AUDIO_INTERNAL_PA,1))
+	if (iaxc_initialize(AUDIO_INTERNAL_PA,1) == -1)
 		return TCL_ERROR;
 
 	iaxc_set_silence_threshold(-99.0); /* the default */
 	iaxc_set_audio_output(0);   /* the default */
 	iaxc_set_event_callback(callback);
-	iaxc_start_processing_thread();
+	if (iaxc_start_processing_thread())
+		return TCL_ERROR;
 
 	return TCL_OK;
 }
