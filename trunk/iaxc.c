@@ -40,10 +40,10 @@
 
 #ifdef BUILD_iaxc
 #include <windows.h>
-#define FIXSLEEP Sleep(250)
+#define FIXSLEEP Sleep(500)
 #else
 #include <pthread.h>
-#define FIXSLEEP usleep(250000)
+#define FIXSLEEP usleep(500000)
 #endif
 
 #include "iaxc.h"
