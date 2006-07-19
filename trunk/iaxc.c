@@ -541,7 +541,7 @@ iaxcSendDtmfCmd(ClientData data, Tcl_Interp *interp, int objc, Tcl_Obj *CONST ob
 	 * send the sound out the the connection's other side
 	 */
 
-	/*iaxc_send_dtmf(digit);*/
+	iaxc_send_dtmf(digit);
 
 	/*
 	 * play the tone back to the user
